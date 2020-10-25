@@ -14,7 +14,14 @@ import json
 import cv2
 import os
 import matplotlib
-matplotlib.use('TkAgg')
+
+from keras.optimizers import SGD
+
+from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
+from keras.models import load_model
+
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import cv2 as cv
 from PIL import Image
@@ -25,8 +32,46 @@ import requests
 import base64
 from io import BytesIO
 import io
-import imageio
 
+
+class File:
+    """
+    Attributes:
+        file_name: A string containing the file name
+        file_type: A string containing the file type (image, video, other)
+        file_extension: A string containing the file extension
+        file_size: A float containing the size of the file in bytes
+        features: A dict containing each type of feature from file for ML -> {feature_set_name: [features]}
+        classification: A dict containing of structure { classifier : prediction, etc }
+    """
+
+    def __init__(self, file_name):
+        self.file_name = file_name
+        self.file_type = ''
+        self.file_extension = ''
+        self.file_size = ''
+        self.features = {}
+        self.classification = {}
+
+    def set_file_type(self, file_type):
+        self.file_type = file_type
+
+    def set_file_extension(self, file_extension):
+        self.file_extension = file_extension
+
+    def set_file_size(self, file_size):
+        self.file_size = file_size
+
+    def add_features(self, feature_source, feature_list):
+        self.features[feature_source] = feature_list
+
+    def update_file(self, file_type, file_extension, file_size):
+        self.file_type = file_type
+        self.file_extension = file_extension
+        self.file_size = file_size
+
+    def set_classification(self, classifier, prediction):
+        self.classification[classifier] = prediction
 
 
 @csrf_exempt
@@ -39,8 +84,8 @@ def detect(request):
 
         if len(request.FILES) != 0:
             file = request.FILES['image']
-            #data['hello'] = file
-            #print(data['hello'])
+            # data['hello'] = file
+            # print(data['hello'])
             bits1 = 2
             key = "User Image"
             img = Image.open(file)
@@ -52,15 +97,24 @@ def detect(request):
             image_enhance(img)
             image_segmentation(img)
             image_restoration(img)
-            plt.subplot(4, 3, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
-            plt.subplot(4, 3, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
-            plt.subplot(4, 3, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+            lowpassfilter(img)
+            key1 = "User Prediction"
+            resNetCNN(data, img, key1)
+            plt.subplot(13, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
+            plt.subplot(13, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
+            plt.subplot(13, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
 
-            plt.subplots_adjust(hspace=.7, wspace=.5)
+            plt.subplots_adjust(hspace=.5, wspace=.5)
             plt.savefig('result.png', bbox_inches='tight')  # To save figure
-            plt.show()  # To show figure
+            # plt.show()  # To show figure
             plt.clf()
-            #plt.show()
+
+            with open("result.png", "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+            data.update({"user_image": image_data})
+
+            # plt.show()
 
         else:
             # grab the URL from the request
@@ -68,6 +122,8 @@ def detect(request):
             bits = 2
             for key in url1:
                 print(key)
+                key_pred = key + "pred"
+                # print(key1)
                 url = url1[key]
                 img = _grab_image(url=url)
                 if not img:
@@ -80,45 +136,51 @@ def detect(request):
                 image_enhance(img)
                 image_segmentation(img)
                 image_restoration(img)
-                plt.subplot(4, 3, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
-                plt.subplot(4, 3, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
-                plt.subplot(4, 3, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+                lowpassfilter(img)
+                resNetCNN(data, img, key_pred)
+                plt.subplot(13, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
+                plt.subplot(13, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
+                plt.subplot(13, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
 
-                plt.subplots_adjust(hspace=.7, wspace=.5)
+                plt.subplots_adjust(hspace=.5, wspace=.5)
                 plt.savefig('result.png', bbox_inches='tight')  # To save figure
-                plt.show()  # To show figure
+                # plt.show()  # To show figure
                 plt.clf()
-                #show_lsb(image=image, n=bits)
-                #analyse(image=image)
-                #plt.show()
-            #url=url1["url1"]
-            #image = _grab_image(url=url)
-            #data.update({'name':  image})
 
+                with open("result.png", "rb") as image_file:
+                    image_data = base64.b64encode(image_file.read()).decode('utf-8')
 
+                data.update({key + "1": image_data})
 
+                # show_lsb(image=image, n=bits)
+                # analyse(image=image)
+                # plt.show()
+            # url=url1["url1"]
+            # image = _grab_image(url=url)
+            # data.update({'name':  image})
 
     # return a JSON response
 
     return JsonResponse(data)
+    # return HttpResponse(data)
 
 
 def _grab_image(url=None):
     try:
         if url is not None:
-            #f1 = plt.figure(1)
-            #resp = urllib.request.urlopen(url)
-            #data = resp.read()
+            # f1 = plt.figure(1)
+            # resp = urllib.request.urlopen(url)
+            # data = resp.read()
 
             response = requests.get(url, stream=True)
             response.raw.decode_content = True
             img = Image.open(response.raw)
             image = img.convert('RGB')
 
-            #print(image)
-            #plt.imshow(image)
-            #plt.show()
-            #plt.clf()
+            # print(image)
+            # plt.imshow(image)
+            # plt.show()
+            # plt.clf()
             return image
     except Image.UnidentifiedImageError:
         print("URL is not an image or Unidentifiable")
@@ -126,7 +188,7 @@ def _grab_image(url=None):
 
 
 def show_lsb(image=None, n=None):
-    #f2 = plt.figure(2)
+    # f2 = plt.figure(2)
 
     # Shows the n least significant bits of image
 
@@ -140,12 +202,11 @@ def show_lsb(image=None, n=None):
     ]
 
     image.putdata(color_data)
-    #plt.imshow(image)
+    # plt.imshow(image)
     print("_{}LSBs".format(n))
 
 
 def analyse(image=None):
-
     # Split the image into blocks
     # Then computing the average value of the LSBs for each block
 
@@ -178,6 +239,7 @@ def analyse(image=None):
     # Creating plot for above gathered data
     numBlocks = len(avgR)
     blocks = [i for i in range(0, numBlocks)]
+    plt.figure(figsize=(10, 5))
     plt.axis([0, len(avgR), 0, 1])
     plt.ylabel('Average LSB per block')
     plt.xlabel('Block number')
@@ -189,11 +251,13 @@ def analyse(image=None):
     plt.savefig("analyse_plot.png")
     plt.clf()
 
+
 def image_enhance(image=None):
     gray_image = image.convert('L')
 
     np_gray_image = np.array(gray_image)
     hist = cv2.calcHist([np_gray_image], [0], None, [256], [0, 256])
+    plt.figure(figsize=(10, 5))
     plt.xlabel('bins')
     plt.ylabel("No of pixels")
     plt.plot(hist)
@@ -204,23 +268,31 @@ def image_enhance(image=None):
     gray_img_eqhist = ImageOps.equalize(gray_image)
     np_gray_img_eqhist = np.array(gray_img_eqhist)
     eqhist = cv2.calcHist([np_gray_img_eqhist], [0], None, [256], [0, 256])
+    plt.figure(figsize=(10, 5))
     plt.xlabel('bins')
     plt.ylabel("No of pixels")
     plt.plot(eqhist)
     plt.savefig("eq_histogram.png")
     plt.clf()
+
+    plt.subplots(figsize=(36, 22))
+
     eq_hist_img = Image.open('eq_histogram.png')
 
     clahe = cv2.createCLAHE(clipLimit=40)
     gray_img_clahe = clahe.apply(np.array(gray_img_eqhist))
 
-    plt.subplot(4, 3, 4), plt.imshow(gray_image, 'gray'), plt.title("Gray Scale Image", fontsize=10)
-    plt.subplot(4, 3, 5), plt.imshow(gray_img_eqhist, 'gray'), plt.title("Eq-Gray Scale Image", fontsize=10)
-    plt.subplot(4, 3, 6), plt.imshow(hist_img, 'gray'), plt.title("Histogram", fontsize=10)
-    plt.subplot(4, 3, 7), plt.imshow(eq_hist_img, 'gray'), plt.title("Equalized Histogram", fontsize=10)
-    plt.subplot(4, 3, 8), plt.imshow(gray_img_clahe, 'gray'), plt.title("Contrast Adaptive", fontsize=10)
+    plt.subplot(13, 1, 4), plt.imshow(gray_image, 'gray'), plt.title("Gray Scale Image", fontsize=10)
+    plt.subplot(13, 1, 5), plt.imshow(gray_img_eqhist, 'gray'), plt.title("Eq-Gray Scale Image", fontsize=10)
+    plt.subplot(13, 1, 6), plt.imshow(hist_img, 'gray'), plt.title("Histogram", fontsize=10)
+    plt.subplot(13, 1, 7), plt.imshow(eq_hist_img, 'gray'), plt.title("Equalized Histogram", fontsize=10)
+    plt.subplot(13, 1, 8), plt.imshow(gray_img_clahe, 'gray'), plt.title("Contrast Adaptive", fontsize=10)
+    plt.imshow(gray_img_clahe, 'gray')
+    # plt.savefig('Gray_Image_Clahe.png')
+    # plt.clf()
 
-def image_segmentation(image = None):
+
+def image_segmentation(image=None):
     gray_image = image.convert('L')
     gray_image_np = np.array(gray_image)
 
@@ -240,10 +312,11 @@ def image_segmentation(image = None):
     dist_transform = cv2.distanceTransform(closing, cv2.DIST_L2, 0)
     ret, fg = cv2.threshold(dist_transform, 0.02 * dist_transform.max(), 255, 0)
 
-    plt.subplot(4, 3, 9), plt.imshow(fg, 'gray'), plt.title("Image Segmentation", fontsize=10)
+    plt.subplot(13, 1, 9), plt.imshow(fg, 'gray'), plt.title("Image Segmentation", fontsize=10)
+    # plt.clf()
 
 
-def image_restoration(image = None):
+def image_restoration(image=None):
     gray_image = image.convert('L')
     np_gray_image = np.array(gray_image)
 
@@ -255,9 +328,58 @@ def image_restoration(image = None):
     # blur = cv2.medianBlur(img, 3)
     blur = cv2.GaussianBlur(img, (3, 3), 0)
 
-    plt.subplot(4, 3, 10), plt.imshow(blur, 'gray'), plt.title("Image Restoration", fontsize=10)
+    plt.subplot(13, 1, 10), plt.imshow(blur, 'gray'), plt.title("Image Restoration", fontsize=10)
+    # plt.imshow(blur, 'gray')
+    # plt.savefig('Image_Restoration')
+    # plt.clf()
 
-def image_metadata(data, image = None, key = None):
+
+def lowpassfilter(image=None):
+    # img = cv2.imread(image)
+    gray_image = image.convert('L')
+    np_gray_image = np.array(gray_image)
+    np_image = np.array((image))
+
+    blur = cv2.blur(np_image, (5, 5))
+    median = cv2.medianBlur(np_image, 5)
+    bl = cv2.bilateralFilter(np_gray_image, 9, 75, 75)
+    plt.subplot(13, 1, 11), plt.imshow(blur, 'gray'), plt.title("Blurred", fontsize=10)
+    plt.subplot(13, 1, 12), plt.imshow(median, 'gray'), plt.title("Median", fontsize=10)
+    plt.subplot(13, 1, 13), plt.imshow(bl, 'gray'), plt.title("Bilateral", fontsize=10)
+
+
+def resNetCNN(data, image=None, key=None):
+    image = image.save("tensor_img.png")
+
+    # load the image
+    img = load_img('tensor_img.png', target_size=(224, 224))
+    # convert to array
+    img = img_to_array(img)
+    # reshape into a single sample with 3 channels
+    img = img.reshape(1, 224, 224, 3)
+    # center pixel data
+    img = img.astype('float32')
+    img = img - [123.68, 116.779, 103.939]
+
+    # load model
+    model = load_model('E:/DJANGO/steganography/steganalysis_main/saved_model/final_model_1_label_categorical_resNet.h5')
+    # predict the class
+    result = model.predict(img)
+    print(result[0])
+    # print(result[0,0])
+    # print(result[0,1])
+
+    if result[0, 0] > result[0, 1]:
+        print("Cover Image Found!")
+        data.update({key: {"Result": "Cover Image Detected!"}})
+    else:
+        print("Stego Image Found!")
+        data.update({key: {"Result": "Stego Image Detected!"}})
+    # prediction = np.argmax(result, -1)
+    # print(prediction)
+
+
+def image_metadata(data, image=None, key=None):
     exif = image.getexif()
     creation_time = exif.get(36867)
     exposure_time = exif.get(33434)
@@ -274,9 +396,8 @@ def image_metadata(data, image = None, key = None):
     sharpness = exif.get(41994)
 
     data.update({key: {"Creation Time": creation_time, "Exposure Time": exposure_time,
-                 "Capture Time": data_time_original, "Shutter Speed": shutter_speed,
-                 "Aperture Value": aperture_value, "Brightness": brightness_value,
-                 "Focal Length": focal_length, "File Source": file_source,
-                 "Rendered": custom_rendered, "White Balance": white_balance,
-                 "Contrast": contrast, "Saturation": saturation, "Sharpness": sharpness}})
-
+                       "Capture Time": data_time_original, "Shutter Speed": shutter_speed,
+                       "Aperture Value": aperture_value, "Brightness": brightness_value,
+                       "Focal Length": focal_length, "File Source": file_source,
+                       "Rendered": custom_rendered, "White Balance": white_balance,
+                       "Contrast": contrast, "Saturation": saturation, "Sharpness": sharpness}})
