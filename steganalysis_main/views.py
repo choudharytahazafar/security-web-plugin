@@ -98,13 +98,17 @@ def detect(request):
             image_segmentation(img)
             image_restoration(img)
             lowpassfilter(img)
+            img3 = Image.open(file)
+            clean_image = clear_lsb(image=img3, n=bits1)
             key1 = "User Prediction"
             resNetCNN(data, img, key1)
-            plt.subplot(13, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
-            plt.subplot(13, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
-            plt.subplot(13, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+            plt.subplot(15, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
+            plt.subplot(15, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
+            plt.subplot(15, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+            show_lsb(image=clean_image, n=bits1)
+            plt.subplot(15, 1, 15), plt.imshow(clean_image, 'gray'), plt.title("LSB Extracted of Clean Image", fontsize=10)
 
-            plt.subplots_adjust(hspace=.5, wspace=.5)
+            plt.subplots_adjust(hspace=.8, wspace=.5)
             plt.savefig('result.png', bbox_inches='tight')  # To save figure
             # plt.show()  # To show figure
             plt.clf()
@@ -137,12 +141,16 @@ def detect(request):
                 image_segmentation(img)
                 image_restoration(img)
                 lowpassfilter(img)
+                img3 = _grab_image(url=url)
+                clean_image = clear_lsb(image=img3, n=bits)
                 resNetCNN(data, img, key_pred)
-                plt.subplot(13, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
-                plt.subplot(13, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
-                plt.subplot(13, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+                plt.subplot(15, 1, 1), plt.imshow(img, 'gray'), plt.title("Original Image", fontsize=10)
+                plt.subplot(15, 1, 2), plt.imshow(img1, 'gray'), plt.title("LSB Extracted", fontsize=10)
+                plt.subplot(15, 1, 3), plt.imshow(img2, 'gray'), plt.title("LSB Analyze", fontsize=10)
+                show_lsb(image=clean_image, n=bits)
+                plt.subplot(15, 1, 15), plt.imshow(clean_image, 'gray'), plt.title("LSB Extracted of Clean Image", fontsize=10)
 
-                plt.subplots_adjust(hspace=.5, wspace=.5)
+                plt.subplots_adjust(hspace=.7, wspace=.5)
                 plt.savefig('result.png', bbox_inches='tight')  # To save figure
                 # plt.show()  # To show figure
                 plt.clf()
@@ -282,11 +290,11 @@ def image_enhance(image=None):
     clahe = cv2.createCLAHE(clipLimit=40)
     gray_img_clahe = clahe.apply(np.array(gray_img_eqhist))
 
-    plt.subplot(13, 1, 4), plt.imshow(gray_image, 'gray'), plt.title("Gray Scale Image", fontsize=10)
-    plt.subplot(13, 1, 5), plt.imshow(gray_img_eqhist, 'gray'), plt.title("Eq-Gray Scale Image", fontsize=10)
-    plt.subplot(13, 1, 6), plt.imshow(hist_img, 'gray'), plt.title("Histogram", fontsize=10)
-    plt.subplot(13, 1, 7), plt.imshow(eq_hist_img, 'gray'), plt.title("Equalized Histogram", fontsize=10)
-    plt.subplot(13, 1, 8), plt.imshow(gray_img_clahe, 'gray'), plt.title("Contrast Adaptive", fontsize=10)
+    plt.subplot(15, 1, 4), plt.imshow(gray_image, 'gray'), plt.title("Gray Scale Image", fontsize=10)
+    plt.subplot(15, 1, 5), plt.imshow(gray_img_eqhist, 'gray'), plt.title("Eq-Gray Scale Image", fontsize=10)
+    plt.subplot(15, 1, 6), plt.imshow(hist_img, 'gray'), plt.title("Histogram", fontsize=10)
+    plt.subplot(15, 1, 7), plt.imshow(eq_hist_img, 'gray'), plt.title("Equalized Histogram", fontsize=10)
+    plt.subplot(15, 1, 8), plt.imshow(gray_img_clahe, 'gray'), plt.title("Contrast Adaptive", fontsize=10)
     plt.imshow(gray_img_clahe, 'gray')
     # plt.savefig('Gray_Image_Clahe.png')
     # plt.clf()
@@ -312,7 +320,7 @@ def image_segmentation(image=None):
     dist_transform = cv2.distanceTransform(closing, cv2.DIST_L2, 0)
     ret, fg = cv2.threshold(dist_transform, 0.02 * dist_transform.max(), 255, 0)
 
-    plt.subplot(13, 1, 9), plt.imshow(fg, 'gray'), plt.title("Image Segmentation", fontsize=10)
+    plt.subplot(15, 1, 9), plt.imshow(fg, 'gray'), plt.title("Image Segmentation", fontsize=10)
     # plt.clf()
 
 
@@ -328,7 +336,7 @@ def image_restoration(image=None):
     # blur = cv2.medianBlur(img, 3)
     blur = cv2.GaussianBlur(img, (3, 3), 0)
 
-    plt.subplot(13, 1, 10), plt.imshow(blur, 'gray'), plt.title("Image Restoration", fontsize=10)
+    plt.subplot(15, 1, 10), plt.imshow(blur, 'gray'), plt.title("Image Restoration", fontsize=10)
     # plt.imshow(blur, 'gray')
     # plt.savefig('Image_Restoration')
     # plt.clf()
@@ -343,9 +351,9 @@ def lowpassfilter(image=None):
     blur = cv2.blur(np_image, (5, 5))
     median = cv2.medianBlur(np_image, 5)
     bl = cv2.bilateralFilter(np_gray_image, 9, 75, 75)
-    plt.subplot(13, 1, 11), plt.imshow(blur, 'gray'), plt.title("Blurred", fontsize=10)
-    plt.subplot(13, 1, 12), plt.imshow(median, 'gray'), plt.title("Median", fontsize=10)
-    plt.subplot(13, 1, 13), plt.imshow(bl, 'gray'), plt.title("Bilateral", fontsize=10)
+    plt.subplot(15, 1, 11), plt.imshow(blur, 'gray'), plt.title("Blurred", fontsize=10)
+    plt.subplot(15, 1, 12), plt.imshow(median, 'gray'), plt.title("Median", fontsize=10)
+    plt.subplot(15, 1, 13), plt.imshow(bl, 'gray'), plt.title("Bilateral", fontsize=10)
 
 
 def resNetCNN(data, image=None, key=None):
@@ -378,6 +386,19 @@ def resNetCNN(data, image=None, key=None):
     # prediction = np.argmax(result, -1)
     # print(prediction)
 
+
+def clear_lsb(image=None, n=None):
+    # using bitwise shift operator to clear least significant bits
+    mask = (1 << n) + 64
+
+    color_data = [
+        (255 * ((rgb[0] & mask) + (rgb[1] & mask) + (rgb[2] & mask)) // (3 * mask),) * 3
+        for rgb in image.getdata()
+    ]
+
+    image.putdata(color_data)
+    plt.subplot(15, 1, 14), plt.imshow(image, 'gray'), plt.title("Clean Image", fontsize=10)
+    return image
 
 def image_metadata(data, image=None, key=None):
     exif = image.getexif()

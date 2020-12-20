@@ -14,16 +14,49 @@
 
   </head>
   <body>
+    <p id="textAnim">SWP</p>
     <h1 id="main_heading">Security Web Plugin</h1>
+    <hr>
     <div class="container-fluid main">
-      <button id="scraper" class="btn btn-info btn-md">Scrape all photos
-      </button>
+      <button id="scraper" class="btn btn-info btn-md">Scrape all photos</button>
+      <div id="loader" class="loader" style="display: none;"></div>
       <div class="btn btn-primary btn-sm float-left" id="input_file">
           <input type="file" id="file-selector">
+        </div>
+        <br>
+        <br>
+        <div id="loader1" class="loader" style="display: none;"></div>
+        <div id="client_editing" style="display:none">
+          <label for="red">Red</label>
+          <input type="range" min="-255" max="255" value="0" id="red">
+          <br>
+
+          <label for="green">Green</label>
+          <input type="range" min="-255" max="255" value="0" id="green">
+          <br>
+
+          <label for="blue">Blue</label>
+          <input type="range" min="-255" max="255" value="0" id="blue">
+          <br>
+
+          <label for="brightness">Brightness</label>
+          <input type="range" min="-255" max="255" value="0" id="brightness">
+          <br>
+
+          <label for="contrast">Constrast</label>
+          <input type="range" min="-255" max="255" value="0" id="contrast">
+          <br>
+
+          <label for="grayscale">Grayscale</label>
+          <input type="checkbox" id="grayscale">
+          <br>
+
+          <canvas id="canvas" width="0" height="0"></canvas>
         </div>
         <h3 id="exif">Exif Data</h3>
         <button id="view_btn" class="btn btn-info btn-md">View</button>
         <div id="myDIV">
+        <div id="scraper_editing"></div>
         <div>
           <img id="orignal_user_image">
         </div>
